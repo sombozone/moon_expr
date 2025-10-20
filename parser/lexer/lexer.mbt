@@ -20,7 +20,7 @@ struct Token {
 
 struct Lexer{
     source : String
-    tokens : @queue.Queue[String]
+    tokens : @queue.Queue[Token]
     err : Error
     start : Int
     end : Int
