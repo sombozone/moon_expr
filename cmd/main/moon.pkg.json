@@ -2,7 +2,7 @@
   "is-main": true,
   "import": [
     {
-      "path": "username/moon_expr",
+      "path": "sombozone/moon_expr",
       "alias": "lib"
     }
   ]
