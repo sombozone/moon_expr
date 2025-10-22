@@ -8,8 +8,6 @@ enum Kind {
   EOF
 } derive(Show)
 
-
-
 ///|
 struct Location {
   from : Int
@@ -22,7 +20,9 @@ struct Location {
 /// Validates that the range is valid (from <= to).
 pub fn Location::new(from~ : Int, to~ : Int) -> Location raise {
   if from > to {
-    raise Failure("Invalid location: start position cannot be greater than end position")
+    raise Failure(
+      "Invalid location: start position cannot be greater than end position",
+    )
   }
   Location::{ from, to }
 }
@@ -56,49 +56,162 @@ pub fn Token::new(location~ : Location, kind~ : Kind, value~ : String) -> Token 
 /// Create an empty Token with default values.
 /// Uses EOF kind, empty string value, and location from 0 to 0.
 pub fn Token::new_empty() -> Token {
-  Token::{
-    location: Location::{ from: 0, to: 0 },
-    kind: Kind::EOF,
-    value: ""
+  Token::{ location: Location::{ from: 0, to: 0 }, kind: Kind::EOF, value: "" }
+}
+
+///|
+/// 词元的位置和占位数量
+pub struct Position {
+  pos : Int
+  index : Int
+  bytes : Int
+} derive(Show)
+///|
+/// Get the string position.
+pub fn Position::pos(self : Position) -> Int {
+  self.pos
+}
+
+///|
+/// Get the index position.
+pub fn Position::index(self : Position) -> Int {
+  self.index
+}
+
+///|
+/// Get the bytes position.
+pub fn Position::bytes(self : Position) -> Int {
+  self.bytes
+}
+
+///|
+struct Lexer {
+  source : String
+  tokens : @queue.Queue[Token]
+  transition : Base
+  err : Error?
+  mut start : Position
+  mut current : Position
+  mut eof : Bool
+} derive(Show)
+
+///|
+pub fn Lexer::new(source~ : String) -> Lexer {
+  Lexer::{
+    source,
+    tokens: @queue.new(),
+    transition : Base::{},
+    err: None,
+    start: Position::{ pos: 0, index: 0, bytes: 0 },
+    current: Position::{ pos: 0, index: 0, bytes: 0 },
+    eof: false,
   }
 }
 
-struct Lexer{
-    source : String
-    tokens : @queue.Queue[Token]
-    err : Option[Error]
-    start : Int
-    end : Int
-    eof : Bool
-} derive(Show)
-
-pub fn Lexer::new(source~ : String) -> Lexer {
-    Lexer::{
-        source,
-        tokens : @queue.new(),
-        err : None,
-        start : 0,
-        end : 0,
-        eof : false
-    }
+pub fn Lexer::tokenize(self : Lexer) -> Array[Token] {
+  for {
+		let token = Lexer::transition(self)
+		match token {
+			Some(t) => {
+				self.tokens.push(t)
+			}
+			None => {
+				break
+			}
+		}
+	}
+  let arr:Array[Token] = []
+  self.tokens.each(t => {
+    arr.push(t)
+  })
+  arr
 }
 
+///|
+/// Get the current position of the lexer.
+pub fn Lexer::current(self : Lexer) -> Position {
+  self.current
+}
+
+///|
+/// Check if the lexer has reached the end of file.
+pub fn Lexer::eof(self : Lexer) -> Bool {
+  self.eof
+}
 
 ///|
 /// Get the next char from the lexer.
-fn Lexer::next(self : Lexer) -> Char {
-    if self.end >= String::length(self.source) {
+pub fn Lexer::next(self : Lexer) -> Char? {
+  if self.eof {
+     println("idx : \{self.current.index} pos : \{self.current.pos}")
+     
+    return None
+  }
+  println("length : \{String::length(self.source)} \{self.source.iter().count()-1}")
+  let len = self.source.iter().count()-1
+  let mut index = self.current.index  
+  // 获取当前字符
+  match self.source.get_char(index) {
+    Some(c) => {
+      // 成功获取字符，更新位置
+      let inc = @encoding/utf8.encode(c.to_string()).length()
+      let bytes = self.current.bytes + inc
+      let pos : Int = self.current.pos + 1
+      index += 1
+      self.current = Position::{ pos, index, bytes }
+      println("next : \{c} pos : \{pos} index : \{index} bytes : \{bytes}, inc : \{inc}")
+      if self.current.pos >= len {
         self.eof = true
-        
+        println("next eof :\{self.eof}")
+      }
+      Some(c)
     }
+    None => {
+      // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
+      index += 1
+      self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+      println("none eof :\{self.eof}")
+      // 检查是否已到达文件末尾
+      if self.current.pos >= len-1{
+        self.eof = true
+        return None
+      }
+      // 递归尝试下一个字符
+      Lexer::next(self)
+    }
+  }
 }
-func (l *Lexer) next() rune {
-	if l.end.byte >= len(l.source.String()) {
-		l.eof = true
-		return eof
-	}
-	r, sz := utf8.DecodeRuneInString(l.source.String()[l.end.byte:])
-	l.end.rune++
-	l.end.byte += sz
-	return r
+
+pub fn Lexer::backup(self : Lexer) -> Unit {
+  if self.eof {
+    self.eof = false
+  }
+  //向前查找字符
+  let mut idx = self.current.index
+  for{
+    idx -= 1
+    match self.source.get_char(idx) {
+      Some(c) => {
+        self.current = {pos:self.current.pos-1, index:idx, bytes:self.current.bytes-@encoding/utf8.encode(c.to_string()).length()}
+        println("backup : \{self.current} val : \{c}")
+        break
+      }
+      None => {
+        continue
+      }
+    }
+  }
+}
+
+pub fn Lexer::transition(self : Lexer) -> Token? {
+  // for {
+  //   self.transition.next(self)
+    
+	// }
+
+  None
+}
+
+pub fn Lexer::commit(self : Lexer) -> Unit {
+  self.start = self.current
 }

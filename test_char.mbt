@@ -55,7 +55,7 @@ test "emoji character indexing" {
 
 ///|
 test "mixed unicode characters" {
-  let mixed = "aα中🌍é_"
+  let mixed = "aα中🌍é_❤️"
 
   // 注意：emoji占用2个字符位置，其他Unicode字符占用1个
   assert_eq(mixed.get_char(0), Some('a')) // ASCII
