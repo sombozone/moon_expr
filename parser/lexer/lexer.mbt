@@ -151,8 +151,12 @@ pub fn Lexer::next(self : Lexer) -> Char? {
     println("idx : \{self.current.index} pos : \{self.current.pos}")
     return None
   }
-  println("length : \{String::length(self.source)} \{self.source.iter().count()-1}")
-  let len = self.source.iter().count()-1
+  println("length : \{String::length(self.source)} \{self.source.iter().count()}")
+  let len = self.source.iter().count()
+  if len == 0 {
+    self.eof = true
+    return None
+  }
   let index = self.current.index  
   // 获取当前字符
   match self.source.get_char(index) {
@@ -204,6 +208,41 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
         self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
         println("next :  \{c} \{self.current} ")
         return
+      }
+    }
+  }
+}
+
+pub fn Lexer::peek_current(self : Lexer) -> StringView raise Error {
+  let next_pos = Lexer::find_next_position(self,self.current)
+  let view = self.source.to_string_view()
+  view[self.current.index:next_pos.index]
+}
+
+pub fn Lexer::find_next_position(self : Lexer,from : Position) -> Position {
+  let len = String::length(self.source)
+  let tt = self.source.iter().count()
+  let index = from.index+1
+  if index >= len {
+    return Position::{ pos:tt, index:len, bytes: 0}
+  }
+
+  match self.source.get_char(index) {
+    None => {
+      // 递归尝试下一个字符
+      Lexer::find_next_position(self,Position::{ pos:from.pos, index, bytes: 0 })
+    }
+    Some(c) => {
+      println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
+      // emoji变体选择符
+      if is_emoji_selector(c) {
+        // 跳过空白字符
+        println("skip")
+        Lexer::find_next_position(self,Position::{ pos:from.pos, index, bytes: 0 })
+      }else{
+        let pos = Position::{ pos:from.pos+1, index, bytes: 0  }
+        println("next :  \{c} \{pos} ")
+        return pos
       }
     }
   }

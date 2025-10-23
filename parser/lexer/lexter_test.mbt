@@ -101,6 +101,7 @@ test "Lexer::next/empty_source" {
 
   // First read should immediately set EOF and return null character
   inspect(lexer.next().is_empty(), content="true")
+  println(lexer.current())
   inspect(lexer.eof(), content="true")
 }
 
@@ -169,4 +170,28 @@ test "Lexer::get_word" {
   inspect(lexer.get_word(), content=" world 🤣A")
 }
 
+test "Lexer::peek_current" {
+  let lexer = Lexer::new(source="a🌍α❤️hello world 🤣A")
+  inspect(lexer.peek_current(), content="a")
+  inspect(lexer.current(), content="{pos: 0, index: 0, bytes: 0}")
+  ignore(lexer.next())
+  inspect(lexer.peek_current(), content="🌍")
+  inspect("{pos: \{lexer.current().pos}, index: \{lexer.current().index}}", content="{pos: 1, index: 1}")
+  ignore(lexer.next())
+  inspect(lexer.peek_current(), content="α")
+  inspect("{pos: \{lexer.current().pos}, index: \{lexer.current().index}}", content="{pos: 2, index: 3}")
+}
+
+test "Lexer::find_next_position" {
+  let lexer = Lexer::new(source="a🌍α❤️hello world 🤣A")
+  inspect(lexer.find_next_position(lexer.current()), content="{pos: 1, index: 1, bytes: 0}")
+  ignore(lexer.next())
+  inspect(lexer.find_next_position(lexer.current()), content="{pos: 2, index: 3, bytes: 0}")
+  ignore(lexer.next())
+  inspect(lexer.find_next_position(lexer.current()), content="{pos: 3, index: 4, bytes: 0}")
+  ignore(lexer.next())
+  inspect(lexer.find_next_position(lexer.current()), content="{pos: 4, index: 6, bytes: 0}")
+  ignore(lexer.next())
+  inspect(lexer.find_next_position(lexer.current()), content="{pos: 5, index: 7, bytes: 0}")
+}
 
