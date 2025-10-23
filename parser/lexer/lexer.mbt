@@ -153,7 +153,7 @@ pub fn Lexer::next(self : Lexer) -> Char? {
   }
   println("length : \{String::length(self.source)} \{self.source.iter().count()-1}")
   let len = self.source.iter().count()-1
-  let mut index = self.current.index  
+  let index = self.current.index  
   // 获取当前字符
   match self.source.get_char(index) {
     Some(c) => {
@@ -161,14 +161,14 @@ pub fn Lexer::next(self : Lexer) -> Char? {
       let inc = @encoding/utf8.encode(c.to_string()).length()
       let bytes = self.current.bytes + inc
       let pos : Int = self.current.pos + 1
-      index += 1
       self.current = Position::{ pos, index, bytes }
-      println("currnt value : \{c}")
-      if self.current.pos >= len {
-        self.eof = true
-        println("next eof :\{self.eof}")
-      }
+      println("currnt value : \{c} \n begin: \{self.current}")
+      // if self.current.pos >= len {
+      //   self.eof = true
+      //   println("next eof :\{self.eof}")
+      // }
       Lexer::find_next(self)
+      println("find_next end for \{c}")
       Some(c)
     }
     None => None
@@ -176,21 +176,33 @@ pub fn Lexer::next(self : Lexer) -> Char? {
 }
 
 pub fn Lexer::find_next(self : Lexer) -> Unit{
-  let len = String::length(self.source)-1 
-  let mut index = self.current.index
-  if index >= len {
+  let len = String::length(self.source)
+  let mut index = self.current.index+1
+  if index > len {
     self.eof = true
     return
   }
+  println(self.source.get_char(index))
   match self.source.get_char(index) {
     None => {
       // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
-      index += 1
       self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
       // 递归尝试下一个字符
+      index += 1
       Lexer::find_next(self)
     }
-    _ => println("next : \{self.current}")
+    Some(c) => {
+      println("next c : \{c} \{c.utf16_len()}")
+      if String::length(c.to_string()) == 0 {
+        // 跳过空白字符
+        index += 1
+        Lexer::find_next(self)
+      }else{
+        self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+        println("next :  \{c} \{self.current} ")
+        return
+      }
+    }
   }
 }
 

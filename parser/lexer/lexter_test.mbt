@@ -138,33 +138,53 @@ test "Lexer::backup" {
 ///|
 test "Lexer::get_word" {
   let lexer = Lexer::new(source="a🌍α❤️hello world 🤣 ")
-  ignore(lexer.next()) // Consume 'a'
-  ignore(lexer.next()) // Consume '🌍'
+  
+ // 移动到 '🌍' 之后，并设置切片起点
+  ignore(lexer.next()) // 'a'
+  ignore(lexer.next()) // '🌍'
+  inspect(lexer.get_word(), content="a🌍")
   lexer.commit()
-  ignore(lexer.next()) // Consume 'α'
-  let t1 = lexer.get_word()
-  println(t1)
-  ignore(lexer.next()) // Consume '❤️'
-  let t2 : StringView = lexer.get_word()
-  println(" \{t1} \{t2} ")
-  lexer.commit()
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  println(lexer.get_word())
-  lexer.commit()
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  ignore(lexer.next())
-  println(lexer.get_word())
 
+  // 读取 'α'，此时切片应为 "α"
+  ignore(lexer.next()) // 'α'
+  let t1 = lexer.get_word()
+  inspect(t1, content="α")
+
+  // 读取“❤️”的第一个码点 '❤'，切片视图应扩展为 "α❤"
+  ignore(lexer.next()) // '❤'
+  ignore(lexer.next())
+  let t2 = lexer.get_word()
+  inspect(t2, content="α❤️")
+
+  // 读取 "hello " 并断言
+  lexer.commit()
+  ignore(lexer.next()) // 'h'
+  ignore(lexer.next()) // 'e'
+  ignore(lexer.next()) // 'l'
+  ignore(lexer.next()) // 'l'
+  ignore(lexer.next()) // 'o'
+  println(lexer.get_word())
+  inspect(lexer.get_word(), content="hello")
+
+  // 读取 "world 🤣 " 并断言
+  lexer.commit()
+  ignore(lexer.next()) // 'w'
+  ignore(lexer.next()) // 'o'
+  ignore(lexer.next()) // 'r'
+  ignore(lexer.next()) // 'l'
+  ignore(lexer.next()) // 'd'
+  ignore(lexer.next()) // ' '
+  ignore(lexer.next()) // '🤣'
+  ignore(lexer.next()) // ' '
+  ignore(lexer.next()) // ' '
+  println(lexer.current())
+  inspect(lexer.get_word(), content=" world 🤣 ")
+  println("a🌍α❤️hello world 🤣A"[:][11:21])
+}
+
+test "String test"{
+  let s = "a🌍α❤️hello world 🤣 "[:]
+  println(s[1:3])
+  println(s[4:6])
+  println(s[6:7])
 }
