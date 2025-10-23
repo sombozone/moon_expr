@@ -181,6 +181,7 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
   if index >= len {
     self.current = Position::{ pos:self.current.pos, index:len, bytes: self.current.bytes  }
     self.eof = true
+    println("eof :\{self.eof} \{self.current}")
     return
   }
   println(self.source.get_char(index))
@@ -218,6 +219,9 @@ pub fn Lexer::backup(self : Lexer) -> Unit {
     idx -= 1
     match self.source.get_char(idx) {
       Some(c) => {
+        if c=='\u{fe0f}' || c=='\u{fe0e}' {
+          continue
+        }
         self.current = {pos:self.current.pos-1, index:idx, bytes:self.current.bytes-@encoding/utf8.encode(c.to_string()).length()}
         println("backup : \{self.current} val : \{c}")
         break

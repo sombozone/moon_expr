@@ -112,18 +112,13 @@ test "Lexer::backup" {
   ignore(lexer.next()) // Consume 'α'
   ignore(lexer.next()) // Consume '❤️'
   lexer.backup()
-  println(lexer.next().unwrap())
-  // println(lexer.next().unwrap())
+  inspect(lexer.current(), content="{pos: 3, index: 4, bytes: 7}")
   lexer.backup()
+  inspect(lexer.current(), content="{pos: 2, index: 3, bytes: 5}")
   lexer.backup()
-  // println(lexer.next().unwrap())
+  inspect(lexer.current(), content="{pos: 1, index: 1, bytes: 1}")
   lexer.backup()
-  println(lexer.next().unwrap())
-  // inspect(lexer.next().unwrap(), content="❤️")
-  // lexer.backup()
-  //  inspect(lexer.next().unwrap(), content="α")
-  // lexer.backup()
-  // inspect(lexer.next().unwrap(), content="🌍")
+  inspect(lexer.current(), content="{pos: 0, index: 0, bytes: 0}")
 }
 
 
