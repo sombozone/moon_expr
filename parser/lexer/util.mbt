@@ -65,4 +65,6 @@ pub fn is_valid_identifier(str : String) -> Bool {
   true
 }
 
-
+pub fn is_emoji_selector(ch : Char) -> Bool {
+  ch == '\u{fe0f}' || ch == '\u{fe0e}'
+}

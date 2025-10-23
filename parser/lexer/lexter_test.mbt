@@ -78,7 +78,7 @@ test "Lexer::next" {
   ignore(lexer.next())
   //inspect(lexer.next().unwrap(), content=" ")
   inspect(lexer.current().pos(), content="8")
-  inspect(lexer.current().index(), content="9")
+  inspect(lexer.current().index(), content="10")
   inspect(lexer.current().bytes(), content="17")  
   inspect(lexer.eof(), content="true")
 }

@@ -195,7 +195,7 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
     Some(c) => {
       println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
       // emoji变体选择符
-      if c=='\u{fe0f}' || c=='\u{fe0e}' {
+      if is_emoji_selector(c) {
         // 跳过空白字符
         self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
         println("skip")
@@ -219,7 +219,7 @@ pub fn Lexer::backup(self : Lexer) -> Unit {
     idx -= 1
     match self.source.get_char(idx) {
       Some(c) => {
-        if c=='\u{fe0f}' || c=='\u{fe0e}' {
+        if is_emoji_selector(c) {
           continue
         }
         self.current = {pos:self.current.pos-1, index:idx, bytes:self.current.bytes-@encoding/utf8.encode(c.to_string()).length()}
