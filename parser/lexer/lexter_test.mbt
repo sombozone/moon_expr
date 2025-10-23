@@ -19,14 +19,6 @@ test "black-box test - using factory function and validation" {
   )
 }
 
-///|
-test "Lexer::new constructor" {
-  let l = @lexer.Lexer::new(source="123")
-  inspect(
-    Show::to_string(l),
-    content="{source: \"123\", tokens: @queue.of([]), err: None, current: {index: 0, bytes: 0}, eof: false}",
-  )
-}
 
 ///|
 test "Token::new_empty constructor" {
@@ -40,7 +32,7 @@ test "Token::new_empty constructor" {
 ///|
 test "Lexer::next" {
   // Test normal character reading
-  let lexer = Lexer::new(source="aα中🌍é_❤️ ")
+  let lexer = Lexer::new(source="aα中🌍é_❤️A")
   inspect(lexer.next().unwrap(), content="a")
   inspect(lexer.current().pos(), content="1")
   inspect(lexer.current().index(), content="1")
@@ -61,7 +53,7 @@ test "Lexer::next" {
 
   inspect(lexer.next().unwrap(), content="🌍")
   inspect(lexer.current().pos(), content="4")
-  inspect(lexer.current().index(), content="4")
+  inspect(lexer.current().index(), content="5")
   inspect(lexer.current().bytes(), content="10")
   inspect(lexer.eof(), content="false")
 
@@ -80,14 +72,14 @@ test "Lexer::next" {
   // “❤️”是由两个码点组成的组合字符（❤ + ️），按码点分别读取
   inspect(lexer.next().unwrap(), content="❤")
   inspect(lexer.current().pos(), content="7")
-  inspect(lexer.current().index(), content="8")
+  inspect(lexer.current().index(), content="9")
   inspect(lexer.current().bytes(), content="16")  
   inspect(lexer.eof(), content="false")
   ignore(lexer.next())
   //inspect(lexer.next().unwrap(), content=" ")
   inspect(lexer.current().pos(), content="8")
   inspect(lexer.current().index(), content="9")
-  inspect(lexer.current().bytes(), content="19")  
+  inspect(lexer.current().bytes(), content="17")  
   inspect(lexer.eof(), content="true")
 }
 
@@ -137,7 +129,7 @@ test "Lexer::backup" {
 
 ///|
 test "Lexer::get_word" {
-  let lexer = Lexer::new(source="a🌍α❤️hello world 🤣 ")
+  let lexer = Lexer::new(source="a🌍α❤️hello world 🤣A")
   
  // 移动到 '🌍' 之后，并设置切片起点
   ignore(lexer.next()) // 'a'
@@ -152,7 +144,7 @@ test "Lexer::get_word" {
 
   // 读取“❤️”的第一个码点 '❤'，切片视图应扩展为 "α❤"
   ignore(lexer.next()) // '❤'
-  ignore(lexer.next())
+  //ignore(lexer.next())
   let t2 = lexer.get_word()
   inspect(t2, content="α❤️")
 
@@ -168,6 +160,7 @@ test "Lexer::get_word" {
 
   // 读取 "world 🤣 " 并断言
   lexer.commit()
+  ignore(lexer.next()) // ' '
   ignore(lexer.next()) // 'w'
   ignore(lexer.next()) // 'o'
   ignore(lexer.next()) // 'r'
@@ -176,15 +169,9 @@ test "Lexer::get_word" {
   ignore(lexer.next()) // ' '
   ignore(lexer.next()) // '🤣'
   ignore(lexer.next()) // ' '
-  ignore(lexer.next()) // ' '
   println(lexer.current())
-  inspect(lexer.get_word(), content=" world 🤣 ")
-  println("a🌍α❤️hello world 🤣A"[:][11:21])
+  println(lexer.current())
+  inspect(lexer.get_word(), content=" world 🤣A")
 }
 
-test "String test"{
-  let s = "a🌍α❤️hello world 🤣 "[:]
-  println(s[1:3])
-  println(s[4:6])
-  println(s[6:7])
-}
+

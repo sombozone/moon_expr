@@ -177,8 +177,9 @@ pub fn Lexer::next(self : Lexer) -> Char? {
 
 pub fn Lexer::find_next(self : Lexer) -> Unit{
   let len = String::length(self.source)
-  let mut index = self.current.index+1
-  if index > len {
+  let index = self.current.index+1
+  if index >= len {
+    self.current = Position::{ pos:self.current.pos, index:len, bytes: self.current.bytes  }
     self.eof = true
     return
   }
@@ -188,14 +189,15 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
       // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
       self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
       // 递归尝试下一个字符
-      index += 1
       Lexer::find_next(self)
     }
     Some(c) => {
-      println("next c : \{c} \{c.utf16_len()}")
-      if String::length(c.to_string()) == 0 {
+      println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
+      // emoji变体选择符
+      if c=='\u{fe0f}' || c=='\u{fe0e}' {
         // 跳过空白字符
-        index += 1
+        self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+        println("skip")
         Lexer::find_next(self)
       }else{
         self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }

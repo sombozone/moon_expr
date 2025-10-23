@@ -85,3 +85,11 @@ test "emoji length and indexing" {
   let emoji_bytes = @encoding/utf8.encode('🌍'.to_string()).length()
   assert_eq(emoji_bytes, 4)
 }
+
+test "emoji with variation selectors" {
+  // 数字1 + 变体选择符-16 = emoji数字1
+  let variation_char = "❤️"
+
+  assert_eq(variation_char.get_char(1).unwrap() == '\u{fe0f}', true)
+  
+}
