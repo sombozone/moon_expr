@@ -133,3 +133,38 @@ test "Lexer::backup" {
   // lexer.backup()
   // inspect(lexer.next().unwrap(), content="🌍")
 }
+
+
+///|
+test "Lexer::get_word" {
+  let lexer = Lexer::new(source="a🌍α❤️hello world 🤣 ")
+  ignore(lexer.next()) // Consume 'a'
+  ignore(lexer.next()) // Consume '🌍'
+  lexer.commit()
+  ignore(lexer.next()) // Consume 'α'
+  let t1 = lexer.get_word()
+  println(t1)
+  ignore(lexer.next()) // Consume '❤️'
+  let t2 : StringView = lexer.get_word()
+  println(" \{t1} \{t2} ")
+  lexer.commit()
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  println(lexer.get_word())
+  lexer.commit()
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  ignore(lexer.next())
+  println(lexer.get_word())
+
+}

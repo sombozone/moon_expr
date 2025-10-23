@@ -1,25 +1,19 @@
-// trait Transition {
-//   step(lexer:Lexer) -> Unit
-// }
+trait Transition {
+  step(self : Self, lexer : Lexer) -> Token?
+}
 
 struct Base {} derive(Show)
 
-// pub(all)  impl Transition for Base with step(self, lexer:Lexer) {
-//   // match lexer.next() {
-//   //   Some(t) => {
-//   //     match t.unwrap() {
-//   //       util.is_space(t) => {
-//   //         // skip whitespace 
-//   //         lexer.commit()
-//   //       }
-//   //       // util.is_digit(t) => {
-//   //       //  // lexer.transition = Number::{}
-//   //       // }
-//   //       _=> println("unexpected token: \{t}")
-//   //     }
-//   //   }
-//   // }
-// }
+pub impl Transition for Base with step(self : Base, lexer : Lexer) -> Token? {
+  if lexer.eof {
+    return None
+  }
+  let t = lexer.next().unwrap()
+  match t {
+        _ => println("unexpected token: \{t}")
+  }
+  None
+}
 // struct Number {}
 // pub impl Transition for Number with step(self, lexer:Lexer) {
   
