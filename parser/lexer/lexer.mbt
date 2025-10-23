@@ -66,6 +66,7 @@ pub struct Position {
   index : Int
   bytes : Int
 } derive(Show)
+
 ///|
 /// Get the string position.
 pub fn Position::pos(self : Position) -> Int {
@@ -88,7 +89,7 @@ pub fn Position::bytes(self : Position) -> Int {
 struct Lexer {
   source : String
   tokens : @queue.Queue[Token]
-  transition : Base
+  mut transition : TransitionState
   err : Error?
   mut start : Position
   mut current : Position
@@ -100,15 +101,13 @@ pub fn Lexer::new(source~ : String) -> Self {
   Lexer::{
     source,
     tokens: @queue.new(),
-    transition : Base::{},
+    transition: TransitionState::Base,
     err: None,
     start: Position::{ pos: 0, index: 0, bytes: 0 },
     current: Position::{ pos: 0, index: 0, bytes: 0 },
     eof: false,
   }
 }
-
-
 
 ///|
 /// Get the current position of the lexer.
@@ -123,30 +122,38 @@ pub fn Lexer::eof(self : Lexer) -> Bool {
 }
 
 ///|
+/// Execute a transition step based on the current transition state
+fn Lexer::execute_transition_step(self : Lexer) -> TransitionState raise {
+  match self.transition {
+    TransitionState::Base => Transition::step(BaseTransition::{  }, self)
+    TransitionState::Number => Transition::step(NumberTransition::{  }, self)
+    TransitionState::Identifier =>
+    Transition::step(IdentifierTransition::{  }, self)
+    TransitionState::String => Transition::step(StringTransition::{  }, self)
+    TransitionState::EOF => Transition::step(EOFTransition::{  }, self)
+    _ => TransitionState::Base
+  }
+}
+
+///|
 /// Tokenize the source string.
-pub fn Lexer::tokenize(self : Lexer) -> Array[Token] {
-  for {
-		let token = self.transition.step(self)
-		match token {
-			Some(t) => {
-				self.tokens.push(t)
-			}
-			None => {
-				break
-			}
-		}
-	}
-  let arr:Array[Token] = []
-  self.tokens.each(t => {
-    arr.push(t)
-  })
+pub fn Lexer::tokenize(self : Lexer) -> Array[Token] raise {
+  // Process tokens until we reach EOF
+  while !self.eof && self.transition != TransitionState::EOF {
+    // Execute the current transition step
+    self.transition = self.execute_transition_step()
+  }
+
+  // Convert queue to array
+  let arr : Array[Token] = []
+  self.tokens.each(t => arr.push(t))
   arr
 }
 
 ///|
 /// Get the current slice of the lexer.
 pub fn Lexer::get_slice(self : Lexer) -> StringView raise Error {
-  println("get_slice : \{self.start.index} \{self.current.index}") 
+  println("get_slice : \{self.start.index} \{self.current.index}")
   self.source.to_string_view()[self.start.index:self.current.index]
 }
 
@@ -157,13 +164,15 @@ pub fn Lexer::next_char(self : Lexer) -> Char? {
     println("idx : \{self.current.index} pos : \{self.current.pos}")
     return None
   }
-  println("length : \{String::length(self.source)} \{self.source.iter().count()}")
+  println(
+    "length : \{String::length(self.source)} \{self.source.iter().count()}",
+  )
   let len = self.source.iter().count()
   if len == 0 {
     self.eof = true
     return None
   }
-  let index = self.current.index  
+  let index = self.current.index
   // 获取当前字符
   match self.source.get_char(index) {
     Some(c) => {
@@ -181,11 +190,16 @@ pub fn Lexer::next_char(self : Lexer) -> Char? {
   }
 }
 
-pub fn Lexer::update_next_position(self : Lexer) -> Unit{
+///|
+pub fn Lexer::update_next_position(self : Lexer) -> Unit {
   let len = String::length(self.source)
-  let index = self.current.index+1
+  let index = self.current.index + 1
   if index >= len {
-    self.current = Position::{ pos:self.current.pos, index:len, bytes: self.current.bytes  }
+    self.current = Position::{
+      pos: self.current.pos,
+      index: len,
+      bytes: self.current.bytes,
+    }
     self.eof = true
     println("eof :\{self.eof} \{self.current}")
     return
@@ -194,7 +208,11 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit{
   match self.source.get_char(index) {
     None => {
       // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
-      self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+      self.current = Position::{
+        pos: self.current.pos,
+        index,
+        bytes: self.current.bytes,
+      }
       // 递归尝试下一个字符
       Lexer::update_next_position(self)
     }
@@ -203,11 +221,19 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit{
       // emoji变体选择符
       if is_emoji_selector(c) {
         // 跳过空白字符
-        self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+        self.current = Position::{
+          pos: self.current.pos,
+          index,
+          bytes: self.current.bytes,
+        }
         println("skip")
         Lexer::update_next_position(self)
-      }else{
-        self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
+      } else {
+        self.current = Position::{
+          pos: self.current.pos,
+          index,
+          bytes: self.current.bytes,
+        }
         println("next :  \{c} \{self.current} ")
         return
       }
@@ -215,34 +241,42 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit{
   }
 }
 
+///|
 pub fn Lexer::peek_current(self : Lexer) -> StringView raise Error {
-  let next_pos = Lexer::find_next_position(self,self.current)
+  let next_pos = Lexer::find_next_position(self, self.current)
   let view = self.source.to_string_view()
   view[self.current.index:next_pos.index]
 }
 
-pub fn Lexer::find_next_position(self : Lexer,from : Position) -> Position {
+///|
+pub fn Lexer::find_next_position(self : Lexer, from : Position) -> Position {
   let len = String::length(self.source)
   let tt = self.source.iter().count()
-  let index = from.index+1
+  let index = from.index + 1
   if index >= len {
-    return Position::{ pos:tt, index:len, bytes: 0}
+    return Position::{ pos: tt, index: len, bytes: 0 }
   }
-
   match self.source.get_char(index) {
-    None => {
+    None =>
       // 递归尝试下一个字符
-      Lexer::find_next_position(self,Position::{ pos:from.pos, index, bytes: 0 })
-    }
+      Lexer::find_next_position(self, Position::{
+        pos: from.pos,
+        index,
+        bytes: 0,
+      })
     Some(c) => {
       println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
       // emoji变体选择符
       if is_emoji_selector(c) {
         // 跳过空白字符
         println("skip")
-        Lexer::find_next_position(self,Position::{ pos:from.pos, index, bytes: 0 })
-      }else{
-        let pos = Position::{ pos:from.pos+1, index, bytes: 0  }
+        Lexer::find_next_position(self, Position::{
+          pos: from.pos,
+          index,
+          bytes: 0,
+        })
+      } else {
+        let pos = Position::{ pos: from.pos + 1, index, bytes: 0 }
         println("next :  \{c} \{pos} ")
         return pos
       }
@@ -250,32 +284,35 @@ pub fn Lexer::find_next_position(self : Lexer,from : Position) -> Position {
   }
 }
 
+///|
 pub fn Lexer::rewind_back(self : Lexer) -> Unit {
   if self.eof {
     self.eof = false
   }
   //向前查找字符
   let mut idx = self.current.index
-  for{
+  for {
     idx -= 1
     match self.source.get_char(idx) {
       Some(c) => {
         if is_emoji_selector(c) {
           continue
         }
-        self.current = {pos:self.current.pos-1, index:idx, bytes:self.current.bytes-@encoding/utf8.encode(c.to_string()).length()}
+        self.current = {
+          pos: self.current.pos - 1,
+          index: idx,
+          bytes: self.current.bytes -
+          @encoding/utf8.encode(c.to_string()).length(),
+        }
         println("backup : \{self.current} val : \{c}")
         break
       }
-      None => {
-        continue
-      }
+      None => continue
     }
   }
 }
 
-
-
+///|
 pub fn Lexer::commit(self : Lexer) -> Unit {
   self.start = self.current
   println("commit : s->  \{self.start} e-> \{self.current}")
