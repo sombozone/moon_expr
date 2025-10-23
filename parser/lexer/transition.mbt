@@ -8,7 +8,7 @@ pub impl Transition for Base with step(self : Base, lexer : Lexer) -> Token? {
   if lexer.eof {
     return None
   }
-  let t = lexer.next().unwrap()
+  let t = lexer.next_char().unwrap()
   match t {
         _ => println("unexpected token: \{t}")
   }

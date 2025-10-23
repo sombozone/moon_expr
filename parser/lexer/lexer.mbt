@@ -108,6 +108,22 @@ pub fn Lexer::new(source~ : String) -> Self {
   }
 }
 
+
+
+///|
+/// Get the current position of the lexer.
+pub fn Lexer::current(self : Lexer) -> Position {
+  self.current
+}
+
+///|
+/// Check if the lexer has reached the end of file.
+pub fn Lexer::eof(self : Lexer) -> Bool {
+  self.eof
+}
+
+///|
+/// Tokenize the source string.
 pub fn Lexer::tokenize(self : Lexer) -> Array[Token] {
   for {
 		let token = self.transition.step(self)
@@ -127,26 +143,16 @@ pub fn Lexer::tokenize(self : Lexer) -> Array[Token] {
   arr
 }
 
-pub fn Lexer::get_word(self : Lexer) -> StringView raise Error {
-  println("get_word : \{self.start.index} \{self.current.index}") 
+///|
+/// Get the current slice of the lexer.
+pub fn Lexer::get_slice(self : Lexer) -> StringView raise Error {
+  println("get_slice : \{self.start.index} \{self.current.index}") 
   self.source.to_string_view()[self.start.index:self.current.index]
 }
 
 ///|
-/// Get the current position of the lexer.
-pub fn Lexer::current(self : Lexer) -> Position {
-  self.current
-}
-
-///|
-/// Check if the lexer has reached the end of file.
-pub fn Lexer::eof(self : Lexer) -> Bool {
-  self.eof
-}
-
-///|
 /// Get the next char from the lexer.
-pub fn Lexer::next(self : Lexer) -> Char? {
+pub fn Lexer::next_char(self : Lexer) -> Char? {
   if self.eof {
     println("idx : \{self.current.index} pos : \{self.current.pos}")
     return None
@@ -167,11 +173,7 @@ pub fn Lexer::next(self : Lexer) -> Char? {
       let pos : Int = self.current.pos + 1
       self.current = Position::{ pos, index, bytes }
       println("currnt value : \{c} \n begin: \{self.current}")
-      // if self.current.pos >= len {
-      //   self.eof = true
-      //   println("next eof :\{self.eof}")
-      // }
-      Lexer::find_next(self)
+      Lexer::update_next_position(self)
       println("find_next end for \{c}")
       Some(c)
     }
@@ -179,7 +181,7 @@ pub fn Lexer::next(self : Lexer) -> Char? {
   }
 }
 
-pub fn Lexer::find_next(self : Lexer) -> Unit{
+pub fn Lexer::update_next_position(self : Lexer) -> Unit{
   let len = String::length(self.source)
   let index = self.current.index+1
   if index >= len {
@@ -194,7 +196,7 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
       // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
       self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
       // 递归尝试下一个字符
-      Lexer::find_next(self)
+      Lexer::update_next_position(self)
     }
     Some(c) => {
       println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
@@ -203,7 +205,7 @@ pub fn Lexer::find_next(self : Lexer) -> Unit{
         // 跳过空白字符
         self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
         println("skip")
-        Lexer::find_next(self)
+        Lexer::update_next_position(self)
       }else{
         self.current = Position::{ pos:self.current.pos, index, bytes: self.current.bytes  }
         println("next :  \{c} \{self.current} ")
@@ -248,7 +250,7 @@ pub fn Lexer::find_next_position(self : Lexer,from : Position) -> Position {
   }
 }
 
-pub fn Lexer::backup(self : Lexer) -> Unit {
+pub fn Lexer::rewind_back(self : Lexer) -> Unit {
   if self.eof {
     self.eof = false
   }
