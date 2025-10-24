@@ -89,7 +89,7 @@ pub fn Position::bytes(self : Position) -> Int {
 struct Lexer {
   source : String
   tokens : @queue.Queue[Token]
-  mut transition : TransitionState
+  mut state : State
   err : Error?
   mut start : Position
   mut current : Position
@@ -101,12 +101,18 @@ pub fn Lexer::new(source~ : String) -> Self {
   Lexer::{
     source,
     tokens: @queue.new(),
-    transition: TransitionState::Base,
+    state: State::Base,
     err: None,
     start: Position::{ pos: 0, index: 0, bytes: 0 },
     current: Position::{ pos: 0, index: 0, bytes: 0 },
     eof: false,
   }
+}
+
+
+
+pub fn Lexer::state(self : Lexer,state: State) -> Unit {
+  self.state = state
 }
 
 ///|
@@ -121,27 +127,29 @@ pub fn Lexer::eof(self : Lexer) -> Bool {
   self.eof
 }
 
-///|
-/// Execute a transition step based on the current transition state
-fn Lexer::execute_transition_step(self : Lexer) -> TransitionState raise {
-  match self.transition {
-    TransitionState::Base => Transition::step(BaseTransition::{  }, self)
-    TransitionState::Number => Transition::step(NumberTransition::{  }, self)
-    TransitionState::Identifier =>
-    Transition::step(IdentifierTransition::{  }, self)
-    TransitionState::String => Transition::step(StringTransition::{  }, self)
-    TransitionState::EOF => Transition::step(EOFTransition::{  }, self)
-    _ => TransitionState::Base
-  }
-}
+// ///|
+// /// Execute a transition step based on the current transition state
+// fn Lexer::execute_transition_step(self : Lexer) -> TransitionState raise {
+//   match self.transition {
+//     TransitionState::Base => Transition::step(BaseTransition::{  }, self)
+//     TransitionState::Number => Transition::step(NumberTransition::{  }, self)
+//     TransitionState::Identifier =>
+//     Transition::step(IdentifierTransition::{  }, self)
+//     TransitionState::String => Transition::step(StringTransition::{  }, self)
+//     TransitionState::EOF => Transition::step(EOFTransition::{  }, self)
+//     _ => TransitionState::Base
+//   }
+// }
 
 ///|
 /// Tokenize the source string.
-pub fn Lexer::tokenize(self : Lexer) -> Array[Token] raise {
+pub fn Lexer::tokenize(self : Lexer) -> Array[Token] raise LexerTransitionError {
   // Process tokens until we reach EOF
-  while !self.eof && self.transition != TransitionState::EOF {
+  while self.state != State::EOF {
     // Execute the current transition step
-    self.transition = self.execute_transition_step()
+    // self.transition = self.execute_transition_step()
+    let transition = Lexer::get_transition(self)
+    transition.execute(self)
   }
 
   // Convert queue to array

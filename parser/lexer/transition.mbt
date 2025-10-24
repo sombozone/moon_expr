@@ -1,225 +1,83 @@
-///|
-/// Transition states enum - represents the current state of the lexer
-pub enum TransitionState {
-  Base
+pub(all) enum State {
+  Base        // 基础状态
   Number      //数字
   Identifier  //变量名 函数名 
   Operator    //运算符
   String      //引号包裹的字符串
   Bracket     //括号
-  EOF
-} derive(Show, Eq)
+  EOF         // 结束符
+} derive(Show,Eq)
 
 ///|
-/// Base transition trait that all transitions implement
-pub trait Transition {
-  step(self : Self, lexer : Lexer) -> TransitionState raise
+/// Transition trait
+/// Provides state routing and contextual preparation for the lexer.
+///
+/// - `execute`: computes the next State based on current lexer input.
+pub(open) trait Transition {
+  /// Compute the next State from the current lexer input.
+  /// May raise if input is invalid or cannot be processed.
+  execute(self : Self, lexer : Lexer) -> Unit raise LexerTransitionError
+}
+
+suberror LexerTransitionError String
+
+// 关键：让包装器实现 Transition，通过分派到内部具体类型
+pub fn Lexer::get_transition(self: Lexer) -> &Transition raise LexerTransitionError {
+    match self.state {
+      Base => BaseTransition::{} as &Transition
+      Number => NumberTransition::{} as &Transition
+      _ => raise LexerTransitionError("Invalid transition wrapper")
+    }
 }
 
 ///|
 /// Base transition - decides which specialized transition to use
-pub struct BaseTransition {} derive(Show)
+pub struct BaseTransition {} derive(Show ,Eq)
 
-///|
-/// Number transition - handles numeric literals
-pub struct NumberTransition {} derive(Show)
-
-///|
-/// Identifier transition - handles keywords and identifiers
-pub struct IdentifierTransition {} derive(Show)
-
-///|
-/// String transition - handles string literals
-pub struct StringTransition {} derive(Show)
-
-///|
-/// EOF transition - marks the end of file
-pub struct EOFTransition {} derive(Show)
-
-///|
-/// Base transition implementation
-/// Handles whitespace and delegates to specialized transitions
-pub impl Transition for BaseTransition with step(
-  self : BaseTransition,
-  lexer : Lexer,
-) -> TransitionState raise {
-  if lexer.eof {
-    return TransitionState::EOF
-  }
-  match lexer.next_char() {
-    Some(c) =>
-      // Handle whitespace - stay in base transition
-      if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-        lexer.commit()
-        TransitionState::Base
-        // Handle digits - switch to number transition
-      } else if c.is_ascii_digit() {
-        lexer.rewind_back()
-        TransitionState::Number
-        // Handle letters and underscores - switch to identifier transition
-      } else if c.is_ascii_alphabetic() || c == '_' {
-        lexer.rewind_back()
-        TransitionState::Identifier
-        // Handle quotes - switch to string transition
-      } else if c == '"' || c == '\'' {
-        lexer.rewind_back()
-        TransitionState::String
-        // Handle other characters (operators, brackets, etc.)
-      } else {
-        // For now, stay in base transition for other characters
-        // In a complete implementation, you might create OperatorTransition, etc.
-        lexer.rewind_back()
-        TransitionState::Base
-      }
-    None => TransitionState::EOF
-  }
+pub fn BaseTransition::new() -> BaseTransition {
+  BaseTransition::{}
 }
 
-///|
-/// Number transition implementation
-/// Processes numeric literals
-pub impl Transition for NumberTransition with step(
-  self : NumberTransition,
-  lexer : Lexer,
-) -> TransitionState raise {
-  if lexer.eof {
-    // Create token for the number and return to base
-    let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-    let token = Token::new(location= location, kind= Kind::Num, value= lexer.get_slice().to_string())
-    lexer.tokens.push(token)
-    lexer.commit()
-    return TransitionState::Base
+impl Transition for BaseTransition with execute(self : BaseTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+    // let c = lexer.next_char()
+    // match c {
+    //   None => raise LexerTransitionError("Unexpected end of input")
+    //   Some(c) => {
+    //     if c.is_digit(10) {
+    //       lexer.transition = State::Number
+    //     } else if is_alphabetic(c) {
+    //       lexer.transition = State::Identifier
+    //     } else if c.is_whitespace() {
+    //       lexer.commit()
+    //       lexer.transition = State::Base
+    //     } else if c == '"' {
+    //       lexer.transition = State::String
+    //     } else {
+    //       lexer.transition = State::Operator
+    //     }
+    //   }
+    // } 
+    println("BaseTransition::execute")
   }
-  
-  match lexer.next_char() {
-    Some(c) => {
-      if c.is_ascii_digit() {
-        // Continue reading digits
-        TransitionState::Number
-      } else {
-        // End of number - create token and return to base
-        lexer.rewind_back()
-        let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-        let token = Token::new(location= location, kind= Kind::Num, value= lexer.get_slice().to_string())
-        lexer.tokens.push(token)
-        lexer.commit()
-        TransitionState::Base
-      }
-    }
-    None => {
-      // EOF reached - create token and return to base
-      let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-      let token = Token::new(location= location, kind= Kind::Num, value= lexer.get_slice().to_string())
-      lexer.tokens.push(token)
-      lexer.commit()
-      TransitionState::Base
-    }
-  }
-}
 
 ///|
-/// Identifier transition implementation
-/// Processes keywords and identifiers
-pub impl Transition for IdentifierTransition with step(
-  self : IdentifierTransition,
-  lexer : Lexer,
-) -> TransitionState raise {
-  if lexer.eof {
-    // Create token for the identifier and return to base
-    let value = lexer.get_slice().to_string()
-    let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-    let token = Token::new(location= location, kind= Kind::Ident, value= value)
-    lexer.tokens.push(token)
-    lexer.commit()
-    return TransitionState::Base
-  }
-  
-  match lexer.next_char() {
-    Some(c) => {
-      if c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_' {
-        // Continue reading identifier characters
-        TransitionState::Identifier
-      } else {
-        // End of identifier - create token and return to base
-        lexer.rewind_back()
-        let value = lexer.get_slice().to_string()
-        let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-        let token = Token::new(location= location, kind= Kind::Ident, value= value)
-        lexer.tokens.push(token)
-        lexer.commit()
-        TransitionState::Base
-      }
-    }
-    None => {
-      // EOF reached - create token and return to base
-      let value = lexer.get_slice().to_string()
-      let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-      let token = Token::new(location= location, kind= Kind::Ident, value= value)
-      lexer.tokens.push(token)
-      lexer.commit()
-      TransitionState::Base
-    }
-  }
+pub struct NumberTransition {} derive(Show ,Eq)
+
+pub fn NumberTransition::new() -> NumberTransition {
+  NumberTransition::{}
 }
 
-///|
-/// String transition implementation
-/// Processes string literals
-pub impl Transition for StringTransition with step(
-  self : StringTransition,
-  lexer : Lexer,
-) -> TransitionState raise {
-  if lexer.eof {
-    // Unclosed string - handle error
-    // For now, just create the token and return to base
-    let value = lexer.get_slice().to_string()
-    let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-    let token = Token::new(location= location, kind= Kind::Str, value= value)
-    lexer.tokens.push(token)
-    lexer.commit()
-    return TransitionState::Base
-  }
-  
-  match lexer.next_char() {
-    Some(c) => {
-      // Check for closing quote
-      if c == '"' || c == '\'' {
-        // End of string - create token and return to base
-        let value = lexer.get_slice().to_string()
-        let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-        let token = Token::new(location= location, kind= Kind::Str, value= value)
-        lexer.tokens.push(token)
-        lexer.commit()
-        TransitionState::Base
-      } else {
-        // Continue reading string content
-        TransitionState::String
-      }
-    }
-    None => {
-      // EOF reached - create token and return to base
-      let value = lexer.get_slice().to_string()
-      let location = Location::new(from= lexer.start.pos, to= lexer.current.pos)
-      let token = Token::new(location= location, kind= Kind::Str, value= value)
-      lexer.tokens.push(token)
-      lexer.commit()
-      TransitionState::Base
-    }
-  }
-}
-
-///|
-/// EOF transition implementation
-/// Marks the end of file
-pub impl Transition for EOFTransition with step(
-  self : EOFTransition,
-  lexer : Lexer,
-) -> TransitionState raise {
-  // Create EOF token
-  let location = Location::new(from= lexer.current.pos, to= lexer.current.pos)
-  let token = Token::new(location= location, kind= Kind::EOF, value= "")
-  lexer.tokens.push(token)
-  lexer.commit()
-  // Stay in EOF transition
-  TransitionState::EOF
+impl Transition for NumberTransition with execute(self : NumberTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  // match lexer.next_char() {
+  //   Some(c) => {
+  //     lexer.rewind_back()
+  //     if c.is_ascii_digit() {
+  //       lexer.transition = State::Number
+  //     } else {
+  //       lexer.transition = State::Operator
+    //     }
+  //   }
+  //   None => lexer.transition = State::EOF
+  // }
+  println("NumberTransition::execute")
 }
