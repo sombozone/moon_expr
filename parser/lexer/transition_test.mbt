@@ -8,3 +8,15 @@ test "Transition::execute" {
   
   t2.execute(lexer)
 }
+
+test "push eof token" {
+  let lexer = Lexer::new(source="")
+  let mut t1 = Lexer::get_transition(lexer)
+  t1.execute(lexer)
+  
+  t1 = Lexer::get_transition(lexer)
+  t1.execute(lexer)
+
+  inspect(lexer.eof(),content="true")
+  inspect(lexer.tokens()[0].kind,content="EOF")
+}

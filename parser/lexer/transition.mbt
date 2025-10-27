@@ -1,11 +1,21 @@
+///|
+/// Lexer state machine for tokenization.
+/// Defines the high-level scanning states used by the lexer.
+/// - Base: Default scanning state; decides which specialized transition to use.
+/// - Number: Reading numeric literals (integers, decimals, etc.).
+/// - Identifier: Reading identifiers (variable and function names).
+/// - Operator: Reading operators and punctuation symbols.
+/// - String: Reading double-quoted string literals.
+/// - Bracket: Reading bracket tokens such as (), [], {}.
+/// - EOF: End-of-file sentinel state; terminates tokenization.
 pub(all) enum State {
-  Base        // 基础状态
-  Number      //数字
-  Identifier  //变量名 函数名 
-  Operator    //运算符
-  String      //引号包裹的字符串
-  Bracket     //括号
-  EOF         // 结束符
+  Base
+  Number
+  Identifier
+  Operator
+  String
+  Bracket
+  EOF
 } derive(Show,Eq)
 
 ///|
@@ -21,11 +31,19 @@ pub(open) trait Transition {
 
 suberror LexerTransitionError String
 
-// 关键：让包装器实现 Transition，通过分派到内部具体类型
+// let the wrapper implement Transition by dispatching to inner concrete types
 pub fn Lexer::get_transition(self: Lexer) -> &Transition raise LexerTransitionError {
+    if self.eof {
+      self.state = State::EOF
+    }
     match self.state {
       Base => BaseTransition::{} as &Transition
       Number => NumberTransition::{} as &Transition
+      Identifier => IdentifierTransition::{} as &Transition
+      Operator => OperatorTransition::{} as &Transition
+      String => StringTransition::{} as &Transition
+      Bracket => BracketTransition::{} as &Transition
+      EOF => EOFTransition::{} as &Transition
       _ => raise LexerTransitionError("Invalid transition wrapper")
     }
 }
@@ -34,38 +52,30 @@ pub fn Lexer::get_transition(self: Lexer) -> &Transition raise LexerTransitionEr
 /// Base transition - decides which specialized transition to use
 pub struct BaseTransition {} derive(Show ,Eq)
 
-pub fn BaseTransition::new() -> BaseTransition {
-  BaseTransition::{}
-}
-
 impl Transition for BaseTransition with execute(self : BaseTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
-    // let c = lexer.next_char()
-    // match c {
-    //   None => raise LexerTransitionError("Unexpected end of input")
-    //   Some(c) => {
-    //     if c.is_digit(10) {
-    //       lexer.transition = State::Number
-    //     } else if is_alphabetic(c) {
-    //       lexer.transition = State::Identifier
-    //     } else if c.is_whitespace() {
-    //       lexer.commit()
-    //       lexer.transition = State::Base
-    //     } else if c == '"' {
-    //       lexer.transition = State::String
-    //     } else {
-    //       lexer.transition = State::Operator
-    //     }
-    //   }
-    // } 
+    if lexer.eof {
+      lexer.state = State::EOF
+      return
+    }
+    match lexer.next_char() {
+      None => {
+        println("BaseTransition::execute None")
+        lexer.eof = true
+      } 
+      Some(c) => {
+        if c.is_whitespace() {
+          lexer.commit() //skip whitespace
+          lexer.state = State::Base
+        } else if c.is_digit(10) {
+          lexer.state = State::Number
+        }
+      }
+    } 
     println("BaseTransition::execute")
   }
 
 ///|
 pub struct NumberTransition {} derive(Show ,Eq)
-
-pub fn NumberTransition::new() -> NumberTransition {
-  NumberTransition::{}
-}
 
 impl Transition for NumberTransition with execute(self : NumberTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
   // match lexer.next_char() {
@@ -80,4 +90,55 @@ impl Transition for NumberTransition with execute(self : NumberTransition, lexer
   //   None => lexer.transition = State::EOF
   // }
   println("NumberTransition::execute")
+}
+
+///|
+/// 读取数字序列，遇到停止符号结束
+/// 停止符包括空格 、运算符、括号、EOF
+/// 处理二进制（0b）、八进制（0o）、十进制、十六进制（0x）
+/// 处理小数 0.5、 .5
+/// 处理科学计数法 1e10、 1.0e-10
+pub fn NumberTransition::scan_number()->Unit  {
+
+}
+
+///|
+/// Identifier transition - reads identifiers (variable and function names)
+pub struct IdentifierTransition {} derive(Show ,Eq)
+
+pub fn IdentifierTransition::new() -> IdentifierTransition {
+  IdentifierTransition::{}
+}
+
+impl Transition for IdentifierTransition with execute(self : IdentifierTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  
+  println("IdentifierTransition::execute")
+}
+
+///|
+/// 
+/// 
+pub struct OperatorTransition {} derive(Show ,Eq)
+
+impl Transition for OperatorTransition with execute(self : OperatorTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  println("OperatorTransition::execute")
+}
+
+pub struct StringTransition {} derive(Show ,Eq)
+
+impl Transition for StringTransition with execute(self : StringTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  println("StringTransition::execute")
+}
+
+pub struct BracketTransition {} derive(Show ,Eq)
+
+impl Transition for BracketTransition with execute(self : BracketTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  println("BracketTransition::execute")
+}
+
+pub struct EOFTransition {} derive(Show ,Eq)
+
+impl Transition for EOFTransition with execute(self : EOFTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
+  println("EOFTransition::execute")
+  lexer.push_token(Kind::EOF)
 }

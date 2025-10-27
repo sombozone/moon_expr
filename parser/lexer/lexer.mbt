@@ -1,12 +1,12 @@
 ///|
-enum Kind {
+pub(all) enum Kind {
   Ident
   Num
   Str
   Oper
   Bracket
   EOF
-} derive(Show)
+} derive(Show,Eq)
 
 ///|
 struct Location {
@@ -40,7 +40,7 @@ pub fn Location::to(self : Location) -> Int {
 }
 
 ///|
-struct Token {
+pub(all) struct Token {
   location : Location
   kind : Kind
   value : String
@@ -88,7 +88,7 @@ pub fn Position::bytes(self : Position) -> Int {
 ///|
 struct Lexer {
   source : String
-  tokens : @queue.Queue[Token]
+  mut tokens : Array[Token]
   mut state : State
   err : Error?
   mut start : Position
@@ -100,7 +100,7 @@ struct Lexer {
 pub fn Lexer::new(source~ : String) -> Self {
   Lexer::{
     source,
-    tokens: @queue.new(),
+    tokens: [],
     state: State::Base,
     err: None,
     start: Position::{ pos: 0, index: 0, bytes: 0 },
@@ -109,7 +109,9 @@ pub fn Lexer::new(source~ : String) -> Self {
   }
 }
 
-
+pub fn Lexer::tokens(self : Lexer) -> Array[Token] {
+  self.tokens
+}
 
 pub fn Lexer::state(self : Lexer,state: State) -> Unit {
   self.state = state
@@ -150,6 +152,7 @@ pub fn Lexer::tokenize(self : Lexer) -> Array[Token] raise LexerTransitionError 
     // self.transition = self.execute_transition_step()
     let transition = Lexer::get_transition(self)
     transition.execute(self)
+
   }
 
   // Convert queue to array
@@ -324,4 +327,24 @@ pub fn Lexer::rewind_back(self : Lexer) -> Unit {
 pub fn Lexer::commit(self : Lexer) -> Unit {
   self.start = self.current
   println("commit : s->  \{self.start} e-> \{self.current}")
+}
+
+pub fn Lexer::recover(self : Lexer) -> Unit {
+  self.current = self.start
+  println("recover : s->  \{self.start} e-> \{self.current}")
+}
+
+pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
+  let res = try?  self.peek_current().to_string()
+  match res {
+    Ok(v) => {
+      self.tokens.push(Token::{
+        location: Location::{ from: self.start.index, to: self.current.index },
+        kind,
+        value: v,
+      })
+      self.commit()
+    }
+    Err(_) => println("emit error")
+  }
 }
