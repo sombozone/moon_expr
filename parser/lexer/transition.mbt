@@ -68,7 +68,8 @@ impl Transition for BaseTransition with execute(self : BaseTransition, lexer : L
           lexer.state = State::Base
         } else if c.is_digit(10) {
           lexer.state = State::Number
-        }else if("()[]{}".contains_any(chars=c.to_string().to_string_view())){
+        } else if (c.to_string().contains_any(chars="()[]{}")) {
+          // 将指针回退到括号字符开始处，由 BracketTransition 读取并产生 token
           lexer.rewind_back()
           lexer.state = State::Bracket
         }
@@ -137,9 +138,18 @@ pub struct BracketTransition {} derive(Show ,Eq)
 
 impl Transition for BracketTransition with execute(self : BracketTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
   println("BracketTransition::execute")
-  let _ = lexer.next_char()
-  lexer.state = State::Base
-  lexer.push_token(Kind::Bracket)
+  // 读取一个括号字符并推送 token，位置为该字符的索引范围
+  match lexer.next_char() {
+    Some(_) => {
+      lexer.push_token(Kind::Bracket)
+      lexer.state = State::Base
+    }
+    None => {
+      // 输入耗尽则推 EOF
+      lexer.push_token(Kind::EOF)
+      lexer.state = State::EOF
+    }
+  }
 }
 
 pub struct EOFTransition {} derive(Show ,Eq)

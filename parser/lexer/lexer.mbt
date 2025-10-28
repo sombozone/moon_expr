@@ -113,8 +113,11 @@ pub fn Lexer::tokens(self : Lexer) -> Array[Token] {
   self.tokens
 }
 
-pub fn Lexer::state(self : Lexer,state: State) -> Unit {
+pub fn Lexer::set_state(self : Lexer, state: State) -> Unit {
   self.state = state
+}
+pub fn Lexer::state(self : Lexer) -> State  {
+  self.state
 }
 
 ///|
@@ -335,7 +338,8 @@ pub fn Lexer::recover(self : Lexer) -> Unit {
 }
 
 pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
-  let res = try?  self.peek_current().to_string()
+  // 使用从 start 到 current 的切片作为 token 文本
+  let res = try? self.get_slice().to_string()
   println("push token : \{kind} \{res} \{self}")
   match res {
     Ok(v) => {
@@ -349,3 +353,8 @@ pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
     Err(_) => println("emit error")
   }
 }
+
+/// Accessors for Token fields to avoid abstract-type field access issues
+pub fn Token::kind(self : Token) -> Kind { self.kind }
+pub fn Token::value(self : Token) -> String { self.value }
+pub fn Token::location(self : Token) -> Location { self.location }
