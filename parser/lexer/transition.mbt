@@ -68,6 +68,9 @@ impl Transition for BaseTransition with execute(self : BaseTransition, lexer : L
           lexer.state = State::Base
         } else if c.is_digit(10) {
           lexer.state = State::Number
+        }else if("()[]{}".contains_any(chars=c.to_string().to_string_view())){
+          lexer.rewind_back()
+          lexer.state = State::Bracket
         }
       }
     } 
@@ -134,6 +137,9 @@ pub struct BracketTransition {} derive(Show ,Eq)
 
 impl Transition for BracketTransition with execute(self : BracketTransition, lexer : Lexer) -> Unit raise LexerTransitionError {
   println("BracketTransition::execute")
+  let _ = lexer.next_char()
+  lexer.state = State::Base
+  lexer.push_token(Kind::Bracket)
 }
 
 pub struct EOFTransition {} derive(Show ,Eq)

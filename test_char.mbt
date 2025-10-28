@@ -93,3 +93,11 @@ test "emoji with variation selectors" {
   assert_eq(variation_char.get_char(1).unwrap() == '\u{fe0f}', true)
   
 }
+
+test "contains_any" {
+  // 数字1 + 变体选择符-16 = emoji数字1
+  let s1 = "abc"
+    // 不包含 'x', 'y', 'z' 任何一个
+    assert_true(s1.contains_any(chars= "d".to_string_view()))
+  
+} 

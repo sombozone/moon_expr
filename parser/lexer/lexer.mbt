@@ -336,6 +336,7 @@ pub fn Lexer::recover(self : Lexer) -> Unit {
 
 pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
   let res = try?  self.peek_current().to_string()
+  println("push token : \{kind} \{res} \{self}")
   match res {
     Ok(v) => {
       self.tokens.push(Token::{

@@ -20,3 +20,20 @@ test "push eof token" {
   inspect(lexer.eof(),content="true")
   inspect(lexer.tokens()[0].kind,content="EOF")
 }
+
+test "push eof token" {
+  let lexer = Lexer::new(source="{}")
+  let  t1 = Lexer::get_transition(lexer)
+  t1.execute(lexer)
+  
+  // t1 = Lexer::get_transition(lexer)
+  // t1.execute(lexer)
+
+  // t1 = Lexer::get_transition(lexer)
+  // t1.execute(lexer)
+  
+  // t1 = Lexer::get_transition(lexer)
+  // t1.execute(lexer) 
+  println(lexer.tokens())
+}
+

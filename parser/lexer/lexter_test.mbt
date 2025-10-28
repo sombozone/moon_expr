@@ -139,7 +139,7 @@ test "Lexer::get_word" {
   inspect(t1, content="α")
 
   // 读取“❤️”的第一个码点 '❤'，切片视图应扩展为 "α❤"
-  ignore(lexer.next_char()) // '❤'
+   inspect(lexer.next_char(), content="❤️") // '❤'
   //ignore(lexer.next())
   let t2 = lexer.get_slice()
   inspect(t2, content="α❤️")
