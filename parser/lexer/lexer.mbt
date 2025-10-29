@@ -129,7 +129,14 @@ pub fn Lexer::current(self : Lexer) -> Position {
 ///|
 /// Check if the lexer has reached the end of file.
 pub fn Lexer::eof(self : Lexer) -> Bool {
-  self.eof
+  // 统一 EOF 判定：基于 current.index 与 source 的长度进行实时计算
+  let len = String::length(self.source)
+  let at_end = self.current.index >= len
+  // 同步内部字段，保持一致性（也兼容已有代码在推进/回退时直接设置 eof 的行为）
+  if at_end != self.eof {
+    self.eof = at_end
+  }
+  at_end
 }
 
 // ///|
@@ -174,7 +181,7 @@ pub fn Lexer::get_slice(self : Lexer) -> StringView raise Error {
 ///|
 /// Get the next char from the lexer.
 pub fn Lexer::next_char(self : Lexer) -> Char? {
-  if self.eof {
+  if Lexer::eof(self) {
     println("idx : \{self.current.index} pos : \{self.current.pos}")
     return None
   }
@@ -183,7 +190,8 @@ pub fn Lexer::next_char(self : Lexer) -> Char? {
   )
   let len = self.source.iter().count()
   if len == 0 {
-    self.eof = true
+    // 统一通过 Lexer::eof(self) 同步 EOF 状态，不直接赋值
+    ignore(Lexer::eof(self))
     return None
   }
   let index = self.current.index
@@ -214,7 +222,8 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit {
       index: len,
       bytes: self.current.bytes,
     }
-    self.eof = true
+    // 统一通过 Lexer::eof(self) 同步 EOF 状态，不直接赋值
+    ignore(Lexer::eof(self))
     println("eof :\{self.eof} \{self.current}")
     return
   }
@@ -300,9 +309,9 @@ pub fn Lexer::find_next_position(self : Lexer, from : Position) -> Position {
 
 ///|
 pub fn Lexer::rewind_back(self : Lexer) -> Unit {
-  if self.eof {
-    self.eof = false
-  }
+  // 回退后通过统一接口重新计算 EOF
+  // 不直接修改 self.eof
+  ignore(Lexer::eof(self))
   //向前查找字符
   let mut idx = self.current.index
   for {
@@ -324,6 +333,8 @@ pub fn Lexer::rewind_back(self : Lexer) -> Unit {
       None => continue
     }
   }
+  // 再次统一 EOF 状态，避免外部直接依赖字段
+  ignore(Lexer::eof(self))
 }
 
 ///|

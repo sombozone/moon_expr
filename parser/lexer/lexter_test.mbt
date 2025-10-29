@@ -105,6 +105,64 @@ test "Lexer::next/empty_source" {
   inspect(lexer.eof(), content="true")
 }
 
+///|
+test "Lexer::eof - dynamic calculation by index/length (basic)" {
+  let lexer = Lexer::new(source="ab")
+  // 初始不在 EOF
+  inspect(lexer.eof(), content="false")
+  // 读到 'a'
+  ignore(lexer.next_char())
+  inspect(lexer.eof(), content="false")
+  // 读到 'b' 后，current.index == length，应判定为 EOF
+  ignore(lexer.next_char())
+  inspect(lexer.eof(), content="true")
+  // 再次读取，越界，应为 None 且 EOF 为 true
+  inspect(lexer.next_char().is_empty(), content="true")
+  inspect(lexer.eof(), content="true")
+}
+
+///|
+test "Lexer::eof - unicode boundaries and variation selectors" {
+  // 包含 emoji 及可能的变体选择符的字符串
+  let lexer = Lexer::new(source="a🌍α❤️")
+  inspect(lexer.eof(), content="false")
+  ignore(lexer.next_char()) // 'a'
+  inspect(lexer.eof(), content="false")
+  ignore(lexer.next_char()) // '🌍'
+  inspect(lexer.eof(), content="false")
+  ignore(lexer.next_char()) // 'α'
+  inspect(lexer.eof(), content="false")
+  // '❤️' 由两个码点组成，next_char 第一次读到 '❤'
+  ignore(lexer.next_char()) // '❤'
+  // 继续读取直到真正到达末尾（变体选择符可能被跳过或当作不可见处理）
+  let mut reached_end = false
+  for {
+    let ch = lexer.next_char()
+    if ch.is_empty() {
+      reached_end = true
+      break
+    }
+  }
+  inspect(reached_end, content="true")
+  inspect(lexer.eof(), content="true")
+}
+
+///|
+test "Lexer::eof - recover/rewind_back consistency" {
+  let lexer = Lexer::new(source="ab")
+  ignore(lexer.next_char()) // 'a'
+  ignore(lexer.next_char()) // 'b'
+  inspect(lexer.next_char().is_empty(), content="true") // EOF
+  inspect(lexer.eof(), content="true")
+  // 回退应清除 EOF
+  lexer.rewind_back()
+  inspect(lexer.eof(), content="false")
+  // 再次推进到末尾
+  ignore(lexer.next_char())
+  inspect(lexer.next_char().is_empty(), content="true")
+  inspect(lexer.eof(), content="true")
+}
+
 test "Lexer::backup" {
   // Test backup behavior
   let lexer = Lexer::new(source="a🌍α❤️")
