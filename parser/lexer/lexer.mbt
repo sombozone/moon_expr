@@ -1,4 +1,10 @@
 ///|
+/// 获取当前状态对应的 Transition（公开给测试与外部调用）
+const LEXER_DEBUG : Bool = false
+
+fn trace(msg : String) -> Unit {
+  if LEXER_DEBUG { println(msg) }
+}
 pub(all) enum Kind {
   Ident
   Num
@@ -174,7 +180,7 @@ pub fn Lexer::tokenize(self : Lexer) -> Array[Token] raise LexerTransitionError 
 ///|
 /// Get the current slice of the lexer.
 pub fn Lexer::get_slice(self : Lexer) -> StringView raise Error {
-  println("get_slice : \{self.start.index} \{self.current.index}")
+  trace("get_slice : \{self.start.index} \{self.current.index}")
   self.source.to_string_view()[self.start.index:self.current.index]
 }
 
@@ -182,10 +188,10 @@ pub fn Lexer::get_slice(self : Lexer) -> StringView raise Error {
 /// Get the next char from the lexer.
 pub fn Lexer::next_char(self : Lexer) -> Char? {
   if Lexer::eof(self) {
-    println("idx : \{self.current.index} pos : \{self.current.pos}")
+    trace("idx : \{self.current.index} pos : \{self.current.pos}")
     return None
   }
-  println(
+  trace(
     "length : \{String::length(self.source)} \{self.source.iter().count()}",
   )
   let len = self.source.iter().count()
@@ -203,9 +209,9 @@ pub fn Lexer::next_char(self : Lexer) -> Char? {
       let bytes = self.current.bytes + inc
       let pos : Int = self.current.pos + 1
       self.current = Position::{ pos, index, bytes }
-      println("currnt value : \{c} \n begin: \{self.current}")
+      trace("currnt value : \{c} \n begin: \{self.current}")
       Lexer::update_next_position(self)
-      println("find_next end for \{c}")
+      trace("find_next end for \{c}")
       Some(c)
     }
     None => None
@@ -224,10 +230,10 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit {
     }
     // 统一通过 Lexer::eof(self) 同步 EOF 状态，不直接赋值
     ignore(Lexer::eof(self))
-    println("eof :\{self.eof} \{self.current}")
+    trace("eof :\{self.eof} \{self.current}")
     return
   }
-  println(self.source.get_char(index))
+  trace(Show::to_string(self.source.get_char(index)))
   match self.source.get_char(index) {
     None => {
       // 获取字符失败（可能是无效的UTF-8编码），跳过当前位置
@@ -240,7 +246,7 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit {
       Lexer::update_next_position(self)
     }
     Some(c) => {
-      println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
+      trace("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
       // emoji变体选择符
       if is_emoji_selector(c) {
         // 跳过空白字符
@@ -249,7 +255,7 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit {
           index,
           bytes: self.current.bytes,
         }
-        println("skip")
+        trace("skip")
         Lexer::update_next_position(self)
       } else {
         self.current = Position::{
@@ -257,7 +263,7 @@ pub fn Lexer::update_next_position(self : Lexer) -> Unit {
           index,
           bytes: self.current.bytes,
         }
-        println("next :  \{c} \{self.current} ")
+        trace("next :  \{c} \{self.current} ")
         return
       }
     }
@@ -288,11 +294,11 @@ pub fn Lexer::find_next_position(self : Lexer, from : Position) -> Position {
         bytes: 0,
       })
     Some(c) => {
-      println("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
+      trace("next c : \{c} \{c.utf16_len()} \{String::length(c.to_string())}")
       // emoji变体选择符
       if is_emoji_selector(c) {
         // 跳过空白字符
-        println("skip")
+        trace("skip")
         Lexer::find_next_position(self, Position::{
           pos: from.pos,
           index,
@@ -300,7 +306,7 @@ pub fn Lexer::find_next_position(self : Lexer, from : Position) -> Position {
         })
       } else {
         let pos = Position::{ pos: from.pos + 1, index, bytes: 0 }
-        println("next :  \{c} \{pos} ")
+        trace("next :  \{c} \{pos} ")
         return pos
       }
     }
@@ -327,7 +333,7 @@ pub fn Lexer::rewind_back(self : Lexer) -> Unit {
           bytes: self.current.bytes -
           @encoding/utf8.encode(c.to_string()).length(),
         }
-        println("backup : \{self.current} val : \{c}")
+        trace("backup : \{self.current} val : \{c}")
         break
       }
       None => continue
@@ -340,18 +346,18 @@ pub fn Lexer::rewind_back(self : Lexer) -> Unit {
 ///|
 pub fn Lexer::commit(self : Lexer) -> Unit {
   self.start = self.current
-  println("commit : s->  \{self.start} e-> \{self.current}")
+  trace("commit : s->  \{self.start} e-> \{self.current}")
 }
 
 pub fn Lexer::recover(self : Lexer) -> Unit {
   self.current = self.start
-  println("recover : s->  \{self.start} e-> \{self.current}")
+  trace("recover : s->  \{self.start} e-> \{self.current}")
 }
 
-pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
+fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
   // 使用从 start 到 current 的切片作为 token 文本
   let res = try? self.get_slice().to_string()
-  println("push token : \{kind} \{res} \{self}")
+  trace("push token : \{kind} \{res} \{self}")
   match res {
     Ok(v) => {
       self.tokens.push(Token::{
@@ -361,7 +367,7 @@ pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
       })
       self.commit()
     }
-    Err(_) => println("emit error")
+    Err(_) => trace("emit error")
   }
 }
 
@@ -369,3 +375,4 @@ pub fn Lexer::push_token(self : Lexer, kind: Kind) -> Unit {
 pub fn Token::kind(self : Token) -> Kind { self.kind }
 pub fn Token::value(self : Token) -> String { self.value }
 pub fn Token::location(self : Token) -> Location { self.location }
+///|

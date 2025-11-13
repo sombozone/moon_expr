@@ -1,24 +1,15 @@
 ///|
 test "Transition::execute" {
-  let lexer = Lexer::new(source="123")
-  let t1 = Lexer::get_transition(lexer)
-  t1.execute(lexer)
-  lexer.set_state(State::Number)
-  let t2 = Lexer::get_transition(lexer)
-  
-  t2.execute(lexer)
+  let tokens = Lexer::tokenize(Lexer::new(source="123"))
+  assert_eq(tokens.length(), 2)
+  assert_eq(tokens[0].kind(), Kind::Num)
+  assert_eq(tokens[1].kind(), Kind::EOF)
 }
 
 test "push eof token" {
-  let lexer = Lexer::new(source="")
-  let mut t1 = Lexer::get_transition(lexer)
-  t1.execute(lexer)
-  
-  t1 = Lexer::get_transition(lexer)
-  t1.execute(lexer)
-
-  inspect(lexer.eof(),content="true")
-  inspect(lexer.tokens()[0].kind,content="EOF")
+  let tokens = Lexer::tokenize(Lexer::new(source=""))
+  assert_eq(tokens.length(), 1)
+  assert_eq(tokens[0].kind(), Kind::EOF)
 }
 
 test "brackets then eof" {
@@ -197,5 +188,80 @@ test "number literals - invalid underscore cases" {
   assert_eq(match r16 { Err(_) => true; Ok(_) => false }, true)
   let r17 = try? Lexer::tokenize(Lexer::new(source="0b101_"))
   assert_eq(match r17 { Err(_) => true; Ok(_) => false }, true)
+}
+
+test "identifier/operator/string - mixed tokenization" {
+  let src = "sum_1 + .5 * func(0xFF, \"hi\\n\")"
+  let tokens = Lexer::tokenize(Lexer::new(source=src))
+  assert_eq(tokens.length(), 11)
+
+  assert_eq(tokens[0].kind(), Kind::Ident)
+  assert_eq(tokens[0].value(), "sum_1")
+
+  assert_eq(tokens[1].kind(), Kind::Oper)
+  assert_eq(tokens[1].value(), "+")
+
+  assert_eq(tokens[2].kind(), Kind::Num)
+  assert_eq(tokens[2].value(), ".5")
+
+  assert_eq(tokens[3].kind(), Kind::Oper)
+  assert_eq(tokens[3].value(), "*")
+
+  assert_eq(tokens[4].kind(), Kind::Ident)
+  assert_eq(tokens[4].value(), "func")
+
+  assert_eq(tokens[5].kind(), Kind::Bracket)
+  assert_eq(tokens[5].value(), "(")
+
+  assert_eq(tokens[6].kind(), Kind::Num)
+  assert_eq(tokens[6].value(), "0xFF")
+
+  assert_eq(tokens[7].kind(), Kind::Oper)
+  assert_eq(tokens[7].value(), ",")
+
+  assert_eq(tokens[8].kind(), Kind::Str)
+  assert_eq(tokens[8].value(), "\"hi\\n\"")
+
+  assert_eq(tokens[9].kind(), Kind::Bracket)
+  assert_eq(tokens[9].value(), ")")
+
+  assert_eq(tokens[10].kind(), Kind::EOF)
+}
+
+test "operator aggregation and dot as operator" {
+  let src1 = "a==b && c!=d || e<=f"
+  let t1 = Lexer::tokenize(Lexer::new(source=src1))
+  assert_eq(t1.length(), 12)
+  assert_eq(t1[0].kind(), Kind::Ident)
+  assert_eq(t1[1].kind(), Kind::Oper)
+  assert_eq(t1[1].value(), "==")
+  assert_eq(t1[2].kind(), Kind::Ident)
+  assert_eq(t1[3].kind(), Kind::Oper)
+  assert_eq(t1[3].value(), "&&")
+  assert_eq(t1[4].kind(), Kind::Ident)
+  assert_eq(t1[5].kind(), Kind::Oper)
+  assert_eq(t1[5].value(), "!=")
+  assert_eq(t1[6].kind(), Kind::Ident)
+  assert_eq(t1[7].kind(), Kind::Oper)
+  assert_eq(t1[7].value(), "||")
+  assert_eq(t1[8].kind(), Kind::Ident)
+  assert_eq(t1[9].kind(), Kind::Oper)
+  assert_eq(t1[9].value(), "<=")
+  assert_eq(t1[10].kind(), Kind::Ident)
+  assert_eq(t1[10].value(), "f")
+  assert_eq(t1[11].kind(), Kind::EOF)
+
+  // 单独的 '.' 在非数字场景归类为操作符
+  let t2 = Lexer::tokenize(Lexer::new(source="."))
+  assert_eq(t2.length(), 2)
+  assert_eq(t2[0].kind(), Kind::Oper)
+  assert_eq(t2[0].value(), ".")
+  assert_eq(t2[1].kind(), Kind::EOF)
+}
+
+test "string unterminated error" {
+  let r = try? Lexer::tokenize(Lexer::new(source="\"abc"))
+  let is_err = match r { Err(_) => true; Ok(_) => false }
+  assert_eq(is_err, true)
 }
 

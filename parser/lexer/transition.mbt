@@ -32,7 +32,7 @@ pub(open) trait Transition {
 suberror LexerTransitionError String
 
 // let the wrapper implement Transition by dispatching to inner concrete types
-pub fn Lexer::get_transition(self: Lexer) -> &Transition raise LexerTransitionError {
+fn Lexer::get_transition(self: Lexer) -> &Transition raise LexerTransitionError {
     if self.eof {
       self.state = State::EOF
     }
@@ -78,17 +78,35 @@ impl Transition for BaseTransition with execute(_self : BaseTransition, lexer : 
                   // 下一个是数字或下划线：交由 NumberTransition 去统一校验
                   if (ch >= '0' && ch <= '9') || ch == '_' {
                     lexer.state = State::Number
+                  } else {
+                    lexer.rewind_back()
+                    lexer.state = State::Operator
                   }
                 }
-                None => ()
+                None => {
+                  lexer.rewind_back()
+                  lexer.state = State::Operator
+                }
               }
             }
-            Err(_) => ()
+            Err(_) => {
+              lexer.rewind_back()
+              lexer.state = State::Operator
+            }
           }
         } else if (c.to_string().contains_any(chars="()[]{}")) {
           // 将指针回退到括号字符开始处，由 BracketTransition 读取并产生 token
           lexer.rewind_back()
           lexer.state = State::Bracket
+        } else if c == '"' {
+          lexer.rewind_back()
+          lexer.state = State::String
+        } else if is_alphabetic(c) || c == '_' || c == '$' {
+          lexer.rewind_back()
+          lexer.state = State::Identifier
+        } else {
+          lexer.rewind_back()
+          lexer.state = State::Operator
         }
       }
     } 
@@ -454,8 +472,46 @@ pub fn IdentifierTransition::new() -> IdentifierTransition {
 }
 
 impl Transition for IdentifierTransition with execute(_self : IdentifierTransition, _lexer : Lexer) -> Unit raise LexerTransitionError {
-  
   println("IdentifierTransition::execute")
+  let lexer = _lexer
+  lexer.commit()
+  match Lexer::next_char(lexer) {
+    None => {
+      if Lexer::eof(lexer) {
+        lexer.push_token(Kind::EOF)
+        lexer.state = State::EOF
+      } else {
+        lexer.state = State::Base
+      }
+      return
+    }
+    Some(ch) => {
+      if !(is_alphabetic(ch) || ch == '_' || ch == '$') {
+        raise LexerTransitionError("invalid identifier start")
+      }
+    }
+  }
+  for {
+    let pv = try? Lexer::peek_current(lexer).to_string()
+    let mut consumed : Bool = false
+    match pv {
+      Ok(s) => {
+        match s.get_char(0) {
+          Some(ch) => {
+            if is_alpha_numeric(ch) || ch == '_' || ch == '$' {
+              let _ = Lexer::next_char(lexer)
+              consumed = true
+            }
+          }
+          None => ()
+        }
+      }
+      Err(_) => ()
+    }
+    if !consumed { break }
+  }
+  lexer.push_token(Kind::Ident)
+  lexer.state = State::Base
 }
 
 ///|
@@ -465,12 +521,84 @@ pub struct OperatorTransition {} derive(Show ,Eq)
 
 impl Transition for OperatorTransition with execute(_self : OperatorTransition, _lexer : Lexer) -> Unit raise LexerTransitionError {
   println("OperatorTransition::execute")
+  let lexer = _lexer
+  lexer.commit()
+  let mut has_any : Bool = false
+  for {
+    let pv = try? Lexer::peek_current(lexer).to_string()
+    let mut consumed : Bool = false
+    match pv {
+      Ok(s) => {
+        match s.get_char(0) {
+          Some(ch) => {
+            let is_br = ch.to_string().contains_any(chars="()[]{}")
+            if !ch.is_whitespace() && !(is_alpha_numeric(ch) || ch == '_' || ch == '$') && !is_br && ch != '"' {
+              let _ = Lexer::next_char(lexer)
+              has_any = true
+              consumed = true
+            }
+          }
+          None => ()
+        }
+      }
+      Err(_) => ()
+    }
+    if !consumed { break }
+  }
+  if !has_any {
+    if Lexer::eof(lexer) {
+      lexer.push_token(Kind::EOF)
+      lexer.state = State::EOF
+    } else {
+      lexer.state = State::Base
+    }
+    return
+  }
+  lexer.push_token(Kind::Oper)
+  lexer.state = State::Base
 }
 
 pub struct StringTransition {} derive(Show ,Eq)
 
 impl Transition for StringTransition with execute(_self : StringTransition, _lexer : Lexer) -> Unit raise LexerTransitionError {
   println("StringTransition::execute")
+  let lexer = _lexer
+  lexer.commit()
+  match Lexer::next_char(lexer) {
+    Some('"') => ()
+    Some(_) => { raise LexerTransitionError("invalid string start") }
+    None => {
+      if Lexer::eof(lexer) {
+        lexer.push_token(Kind::EOF)
+        lexer.state = State::EOF
+      } else {
+        lexer.state = State::Base
+      }
+      return
+    }
+  }
+  let mut escaped : Bool = false
+  let mut terminated : Bool = false
+  for {
+    match Lexer::next_char(lexer) {
+      None => { break }
+      Some(ch) => {
+        if escaped {
+          escaped = false
+        } else {
+          if ch == '\\' {
+            escaped = true
+          } else if ch == '"' {
+            terminated = true
+            break
+          }
+        }
+      }
+    }
+  }
+  if !terminated { raise LexerTransitionError("unterminated string literal") }
+  lexer.push_token(Kind::Str)
+  lexer.state = State::Base
 }
 
 pub struct BracketTransition {} derive(Show ,Eq)
